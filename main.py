@@ -68,7 +68,7 @@ def compress(cnn, image):
 				frame = [[0 for y in range(16)] for x in range(16)]
 				for i in np.arange((move_H) * cs_size, (move_H) * cs_size + frame_size): #anything with move - 1 needs to be removed because it was designed not for matlab
 					for j in np.arange((move_W) * cs_size, (move_W) * cs_size + frame_size): #due to the stupid 1
-						print(i, j, i - (move_H - 1) * cs_size, j - (move_W - 1) * cs_size)
+						#print(i, j, i - (move_H - 1) * cs_size, j - (move_W - 1) * cs_size)
 						frame[i - (move_H) * cs_size][j - (move_W) * cs_size] = testimages_r_new[i][j]
 				testimagesnew = np.reshape(np.array(frame), (frame_size ** 2, 1)).T
 				trans = np.array(cnn).T
@@ -86,7 +86,7 @@ def compress(cnn, image):
 				#print(np.array(cnn))
 				R2E = np.matmul(np.array(cnn), ww.T)
 				for _ in range(b):
-					pass
+					rec3 = linearize(R2E, Y1)
 				'''
 					This is where estimations and linear approximations are used to reconstruct
 					Right now it is just being set to 0 while I rewrite the other function
@@ -3849,18 +3849,23 @@ def dwt(): #dwt matrix
 		 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 		 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 		 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1.889950e-03, -3.029205e-04]]
-	return ww #smaller so that the 256 x 256 matrix is not shown
-'''
-def linearize(A, y, varagin):
-	m, n = A.size
+	return ww
+	#smaller so that the 256 x 256 matrix is not shown and does not take up 3000 lines
+	#turn it into a file and then import it like they did for the nn
+
+def linearize(A, y):
+	m, n = A.shape
 	A_arr = np.array(A)
 	max_iters = 800
+	tolerance = 0.5
+	lamb = 0
 	r = np.array(y)
 	x = [[0 for y in range(n)] for x in range(1)]
 	active_set = []
 	t = 1
 	L = []
 	D = []
+	active_set = []
 	done = False
 	while not done and t <= max_iters:
 		corr = np.matmul(A_arr.T, r)
@@ -3869,20 +3874,43 @@ def linearize(A, y, varagin):
 		if maxcorr == 0:
 			done = 1
 		else:
-			active_set = [active_set, I]
-			h = np.matmul(A_arr[:][active_set].T, A_arr[:][I])
+			active_set.append(I)
+			for i in range(len(active_set)):
+				h =
+
 			if t == 1:
 				D = np.matmul(A_arr[:][I].T, A_arr[:][I])
 				L = 1
 			else:
+				w = np.linalg(L, h[0:len(h) - 1])
+				l2l = np.divide(w, np.diag(D))
+				d22 = np.array(h[len(h) - 1]) - np.matmul(np.array(l2l).T, w)
+
+				#L This adds new to lower half of diagonal
+				#[1 ,  0] --> [1 , 0 , 0]
+				#[0.2, 1]     [0.2, 1, 0]
+				#             [0.1, 3, 1]
+
+				#D This adds it along the diagonal
+				#[0.2, 0 ] --> [4.2 , 0   ,  0]
+				#[0  , 10]     [0   , 0.2 ,  0]
+			    #              [0   , 0   , 10]
+			z = [[0 for y in range(len(L))] for x in range(1)]
+			z[len(L) - 1] = corr[I]
+			u = np.divide(z, np.diag(D))
+			d = np.linalg(L, u)
+			#x[active_set] = x[active_set] + d
+		    #v = np.matmul(A[:, active_set), d)
+			#r = np.subtract(r, v)
+		norm_res = np.linalg.norm(r)
+		relative_res = np.divide(norm_res, np.linalg.norm(y))
+		if ((norm_res <= tolerance) or ((lamb > 0) and (maxcorr <= lamb))):
+			done = 1
+		t = t + 1
+	return x
 				#linsolve
 				#diag function
 				#some other stuff
-
-'''
-
-
-
 
 def main():
 	im = Image.open(r"beagle.png")
